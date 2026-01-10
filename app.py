@@ -1,10 +1,10 @@
 import os
 import time
 import streamlit as st
-#import google.generativeai as genai
-#import yfinance as yf
-#import akshare as ak
-#import pandas as pd
+import google.generativeai as genai
+import yfinance as yf
+import akshare as ak
+import pandas as pd
 
 # ⚠️ 1. 强制走本地代理 (解决国内连接 Google 的问题)
 # 请确保端口 7890 与你的 VPN 软件设置一致
@@ -241,4 +241,5 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                     st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
                 else:
                     st.error(f"Gemini 报错: {e}")
+
 
