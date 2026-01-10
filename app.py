@@ -82,7 +82,7 @@ with st.sidebar:
     st.header("⚙️ 设置")
     
     default_key = "AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM" 
-    api_key = st.text_input("Gemini API Key", value=default_key, type="password")
+    api_key = "AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM" #st.text_input("Gemini API Key", value=default_key, type="password")
 
     st.divider()
     st.success("🤖 当前模型：gemini-2.5-flash")
@@ -241,3 +241,4 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                     st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
                 else:
                     st.error(f"Gemini 报错: {e}")
+
