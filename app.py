@@ -29,7 +29,7 @@ def get_global_financial_data(market, symbol):
                     return f"❌ 错误：未找到A股代码 {symbol}。请检查是否输入正确（如 600519）。"
                 
                 row = target.iloc[0]
-                context += f"【实时行情】\n名称：{row['名称']}\n价格：{row['最新价']}\n涨跌幅：{row['涨跌幅']}%\nPE(动)：{row['市盈率-动态']}\n市值：{row['总市值'][...]
+                context += f"【实时行情】\n名称：{row['名称']}\n价格：{row['最新价']}\n涨跌幅：{row['涨跌幅']}%\nPE(动)：{row['市盈率-动态']}\n市值：{row['总市值']}\n\n"
                 
                 # 2. 财务指标 (尝试获取)
                 context += "【财务概况】\n(注：A股详细财务数据调用耗时较长，此处仅提供行情驱动分析)\n"
@@ -81,33 +81,8 @@ st.set_page_config(page_title="Global AI Stock Analyst", page_icon="🌏", layou
 with st.sidebar:
     st.header("⚙️ 设置")
     
-    # 安全化处理：优先从 Streamlit secrets 读取，再从环境变量读取，最后为空需用户手动输入
-    default_key = ""
-    source_of_key = None
-    try:
-        # st.secrets 仅在 Streamlit 环境可用
-        if "GEMINI_API_KEY" in st.secrets:
-            default_key = st.secrets["GEMINI_API_KEY"]
-            source_of_key = "secrets"
-    except Exception:
-        # 如果 st.secrets 不可用或抛出异常，忽略
-        pass
-
-    if not default_key:
-        default_key = os.getenv("GEMINI_API_KEY", "")
-        if default_key:
-            source_of_key = "env"
-
-    # 注意：不要把 key 直接放在代码里！我们不在界面里显示明文 key。
-    api_key = st.text_input("Gemini API Key", value="", type="password", placeholder="可在 Streamlit secrets 或 环境变量 GEMINI_API_KEY 中配置")
-
-    # 如果 secrets/env 中已有 key，提示用户并让其选择是否使用（不显示实际值）
-    use_loaded_key = False
-    if source_of_key:
-        st.caption(f"检测到已在 {source_of_key} 中配置 API Key（未显示明文）。勾选下方即可使用。")
-        use_loaded_key = st.checkbox(f"使用来自 {source_of_key} 的 API Key (优先)", value=True)
-        if use_loaded_key and not api_key:
-            api_key = default_key
+    default_key = "AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM" 
+    api_key = st.text_input("Gemini API Key", value=default_key, type="password")
 
     st.divider()
     st.success("🤖 当前模型：gemini-2.5-flash")
@@ -157,7 +132,8 @@ with col2:
 
 # 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
-你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，结合其所在市场的特性（如美股关注创新与回购、日股关注巴菲特与治理改革、港��[...]
+你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，结合其所在市场的特性（如美股关注创新与回购、日股关注巴菲特与治理改革、港股关注流动性与地缘、A股关注政策与题材），生成一份深度研报。
+
 请按以下结构生成一份逻辑清晰、论证严密的个股研报：
 
 1. 基本面分析
@@ -206,7 +182,7 @@ SYSTEM_PROMPT = """
 # 6. 执行逻辑
 if st.button("🚀 生成全球研报", use_container_width=True):
     if not api_key:
-        st.error("请先在左侧输入或加载 Gemini API Key 🔑（建议使用 Streamlit secrets 或 环境变量 GEMINI_API_KEY）")
+        st.error("请先在左侧输入 Gemini API Key 🔑")
     else:
         # 初始化
         start_time = time.time()
