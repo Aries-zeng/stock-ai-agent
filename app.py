@@ -81,8 +81,8 @@ st.set_page_config(page_title="Global AI Stock Analyst", page_icon="🌏", layou
 with st.sidebar:
     st.header("⚙️ 设置")
     
-    default_key = "AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM" 
-    api_key = st.text_input("Gemini API Key", value=default_key, type="password")
+    #default_key = "AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM" 
+    #api_key = st.text_input("Gemini API Key", value=default_key, type="password")
 
     st.divider()
     st.success("🤖 当前模型：gemini-2.5-flash")
@@ -205,7 +205,7 @@ if st.button("🚀 生成全球研报", use_container_width=True):
             status_box.write(f"🧠 数据获取成功，正在请求 Gemini 1.5 Flash...")
             
             try:
-                genai.configure(api_key=api_key)
+                genai.configure(api_key=AIzaSyAzgQk7lEfNcsRoCBxRRbjbQR4remrFztM)
                 model = genai.GenerativeModel(model_name)
                 
                 full_prompt = f"""
@@ -240,4 +240,5 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                 if "429" in str(e):
                     st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
                 else:
+
                     st.error(f"Gemini 报错: {e}")
