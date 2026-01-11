@@ -214,4 +214,5 @@ if st.button("🚀 生成全球研报", use_container_width=True):
         if 'search_history' not in st.session_state:
             st.session_state['search_history'] = []
 
+)
 
