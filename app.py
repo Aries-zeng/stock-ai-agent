@@ -1,4 +1,3 @@
-```python name=app.py url=https://github.com/Aries-zeng/stock-ai-agent/blob/26898ce4dcf1bee9b2393fcbd077bff1890a1d87/app.py
 import os
 import time
 import streamlit as st
@@ -214,77 +213,5 @@ if st.button("🚀 生成全球研报", use_container_width=True):
     try:
         if 'search_history' not in st.session_state:
             st.session_state['search_history'] = []
-        if symbol:
-            normalized = str(symbol).strip()
-            if normalized:
-                # 避免重复，保留最早的出现顺序（只记录新搜索）
-                if normalized not in st.session_state['search_history']:
-                    st.session_state['search_history'].append(normalized)
-                    # 限制历史长度为最近 50 条
-                    if len(st.session_state['search_history']) > 50:
-                        st.session_state['search_history'] = st.session_state['search_history'][-50:]
-    except Exception:
-        # 不要因为历史记录出错而阻塞主流程
-        pass
 
-    if not api_key:
-        st.error("请先在左侧输入 Gemini API Key 🔑")
-    else:
-        # 初始化
-        start_time = time.time()
-        progress_bar = st.progress(0, text="正在初始化...")
-        status_box = st.status(f"🚀 正在启动 {market_code} 市场分析引擎...", expanded=True)
-
-        # A. 获取数据
-        progress_bar.progress(20, text=f"📡 正在连接 {market_label} 交易所接口...")
-        status_box.write("📡 正在抓取实时行情与财务数据...")
-
-        data_context = get_global_financial_data(market_code, symbol)
-
-        if isinstance(data_context, str) and ("错误" in data_context or "报错" in data_context or "未能导入" in data_context):
-            status_box.update(label="❌ 数据获取失败", state="error")
-            progress_bar.empty()
-            st.error(data_context)
-        else:
-            # B. AI 推理
-            progress_bar.progress(50, text="🧠 数据就绪，正在请求 Gemini 进行跨市场分析...")
-            status_box.write(f"🧠 数据获取成功，正在请求 Gemini {model_name}...")
-
-            try:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(model_name)
-
-                full_prompt = f"""
-                {SYSTEM_PROMPT}
-                ---
-                【目标股票】：{market_label} - 代码 {symbol}
-                【交易所实时数据】：
-                {data_context}
-                ---
-                请开始分析：
-                """
-
-                response = model.generate_content(full_prompt)
-
-                # C. 完成
-                progress_bar.progress(100, text="✅ 生成完成！")
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-
-                status_box.update(label=f"✅ 分析完成！(耗时 {elapsed_time:.2f}s)", state="complete", expanded=False)
-                st.success(f"研报已生成！耗时：{elapsed_time:.2f} 秒")
-
-                st.divider()
-                st.markdown(response.text)
-
-                time.sleep(2)
-                progress_bar.empty()
-
-            except Exception as e:
-                status_box.update(label="API 调用出错", state="error")
-                progress_bar.empty()
-                if "429" in str(e):
-                    st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
-                else:
-                    st.error(f"Gemini 报错: {e}")
-```
+
