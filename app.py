@@ -146,8 +146,14 @@ if "history" not in st.session_state:
 with st.sidebar:
     st.header("⚙️ 设置")
 
-    default_key = ""
-    api_key = "" #st.text_input("Gemini API Key", value=default_key, type="password")
+    # === 🔥 安全更新：移除了所有硬编码 Key ===
+    # === 新增：API Key 输入框 (密码模式) ===
+    api_key = st.text_input(
+        "Gemini API Key", 
+        type="password", 
+        placeholder="在此粘贴 Key，不会明文显示",
+        help="你的 Key 不会被保存。刷新页面后需要重新输入。"
+    )
 
     st.divider()
     st.success("🤖 当前模型：gemini-2.5-flash")
@@ -211,8 +217,9 @@ SYSTEM_PROMPT = """
 
 # 6. 执行逻辑
 if st.button("🚀 生成全球研报", use_container_width=True):
+    # === 检查 Key 是否输入 ===
     if not api_key:
-        st.error("请先在左侧输入 Gemini API Key 🔑")
+        st.error("❌ 请先在左侧侧边栏输入 Gemini API Key 才能继续！")
     else:
         # 初始化
         start_time = time.time()
@@ -273,6 +280,7 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                 progress_bar.empty()
                 if "429" in str(e):
                     st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
+                elif "403" in str(e):
+                    st.error("🛑 API Key 无效。请检查输入的 Key 是否正确。")
                 else:
                     st.error(f"Gemini 报错: {e}")
-
