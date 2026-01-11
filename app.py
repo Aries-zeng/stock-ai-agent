@@ -1,4 +1,3 @@
-python name=app.py url=https://github.com/Aries-zeng/stock-ai-agent/blob/f47f2c173475ccf7aa8606c59887dc31f450b810/app.py
 import os
 import time
 import streamlit as st
@@ -248,3 +247,4 @@ if st.button("🚀 生成全球研报", use_container_width=True):
 
     except Exception as e:
         st.error(f"发生错误: {e}")
+
