@@ -204,7 +204,7 @@ with col2:
 
 # 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
-你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，结合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、投资结论与风险提示。请尽量使用事实和数据支撑结论，必要时指出数据的局限性。
+你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，结合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、投��[...]
 """
 
 # 6. 执行逻辑
@@ -233,11 +233,81 @@ if st.button("🚀 生成全球研报", use_container_width=True):
         if api_key:
             try:
                 genai.configure(api_key=api_key)
-                prompt = SYSTEM_PROMPT + f"\n\n股票代码: {sym}\n市场: {market_code}\n\n数据:\n{data_context}\n\n请基于上述数据撰写一份结构化研报：基本面分析、驱动因素、投资结论与风险提示。"
-                # 尝试生成（注意：不同 genai 版本接口可能不同）
-                response = genai.generate(model=model_name, prompt=prompt, max_output_tokens=800)
-                # response.text is common, but fall back to str()
-                report = getattr(response, "text", None) or str(response)
+
+                # 使用 chat completions 的方式调用（兼容新版 SDK）
+                prompt = SYSTEM_PROMPT + f"\n\n股票代码: {sym}\n市场: {market_code}\n\n数据:\n{data_context}\n\n请基于上述数据撰写一份结构化研报：基本面分析、驱动因��[...]"
+
+                # 调用 chat completions（如果你使用的是较旧版本并且有 generate，可替换回旧调用）
+                resp = genai.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.2,
+                    max_output_tokens=800,
+                )
+
+                # 从响应中以多种常见结构安全提取文本（兼容不同版本返回格式）
+                report = None
+                try:
+                    # 如果返回有 last.candidates（部分新版/示例）
+                    if hasattr(resp, "last") and isinstance(resp.last, dict):
+                        candidates = resp.last.get("candidates", [])
+                        if candidates:
+                            # candidates 内容可能为 list of dicts with content structure
+                            cand = candidates[0]
+                            if isinstance(cand, dict):
+                                # 试几种常见嵌套路径
+                                content = cand.get("content")
+                                if isinstance(content, list) and content:
+                                    # content 是 list，取第一个 text
+                                    first = content[0]
+                                    if isinstance(first, dict) and "text" in first:
+                                        report = first.get("text")
+                                elif isinstance(cand.get("message", {}), dict):
+                                    # 有些版本在 message.content.text
+                                    report = cand.get("message", {}).get("content", "")
+                                else:
+                                    report = cand.get("text") or cand.get("content")
+                    # 如果有 output 字段（另一个新版结构）
+                    if not report and hasattr(resp, "output"):
+                        texts = []
+                        for o in getattr(resp, "output", []) or []:
+                            for c in o.get("content", []) if isinstance(o, dict) else []:
+                                if c.get("type") == "text":
+                                    texts.append(c.get("text", ""))
+                                elif "text" in c:
+                                    texts.append(c.get("text", ""))
+                        if texts:
+                            report = "\n".join(texts)
+                    # 如果有 choices（类 OpenAI 响应）
+                    if not report and hasattr(resp, "choices"):
+                        try:
+                            choice = resp.choices[0]
+                            # 兼容属性/字典访问
+                            msg = getattr(choice, "message", None) or (choice.get("message") if isinstance(choice, dict) else None)
+                            if isinstance(msg, dict):
+                                # 有可能 message.content 为字符串或 list
+                                report = msg.get("content") or msg.get("content", "")
+                            else:
+                                report = str(choice)
+                        except Exception:
+                            report = None
+                except Exception:
+                    report = None
+
+                # 最后退到通用字符串化
+                if not report:
+                    try:
+                        # dict-like fallback
+                        if isinstance(resp, dict):
+                            report = resp.get("candidates", [{}])[0].get("content", [{"text": ""}])[0].get("text", "")
+                        else:
+                            report = str(resp)
+                    except Exception:
+                        report = str(resp)
+
                 st.subheader("AI 研报")
                 st.markdown(report)
             except Exception as e:
@@ -247,4 +317,3 @@ if st.button("🚀 生成全球研报", use_container_width=True):
 
     except Exception as e:
         st.error(f"发生错误: {e}")
-
