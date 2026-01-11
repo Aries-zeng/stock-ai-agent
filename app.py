@@ -1,3 +1,4 @@
+python name=app.py url=https://github.com/Aries-zeng/stock-ai-agent/blob/f47f2c173475ccf7aa8606c59887dc31f450b810/app.py
 import os
 import time
 import streamlit as st
@@ -204,7 +205,7 @@ with col2:
 
 # 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
-你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，��合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、��[...]
+你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，结合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、投资结论与风险提示。请尽量使用事实和数据支撑结论，必要时指出数据的局限性。
 """
 
 # 6. 执行逻辑
@@ -214,5 +215,36 @@ if st.button("🚀 生成全球研报", use_container_width=True):
         if 'search_history' not in st.session_state:
             st.session_state['search_history'] = []
 
-)
+        sym = (symbol or "").strip()
+        if sym:
+            # 保存不重复的历史，保持最多 50 条
+            if sym not in st.session_state['search_history']:
+                st.session_state['search_history'].append(sym)
+            if len(st.session_state['search_history']) > 50:
+                st.session_state['search_history'] = st.session_state['search_history'][-50:]
 
+        # 获取基础数据（缓存支持）
+        with st.spinner("正在获取市场与财务数据..."):
+            data_context = get_global_financial_data(market_code, sym)
+
+        st.subheader("原始数据 / Data Context")
+        st.text_area("数据上下文（供AI分析使用）", value=str(data_context), height=260)
+
+        # 如果配置了 Gemini API Key，则调用生成模型生成研报
+        if api_key:
+            try:
+                genai.configure(api_key=api_key)
+                prompt = SYSTEM_PROMPT + f"\n\n股票代码: {sym}\n市场: {market_code}\n\n数据:\n{data_context}\n\n请基于上述数据撰写一份结构化研报：基本面分析、驱动因素、投资结论与风险提示。"
+                # 尝试生成（注意：不同 genai 版本接口可能不同）
+                response = genai.generate(model=model_name, prompt=prompt, max_output_tokens=800)
+                # response.text is common, but fall back to str()
+                report = getattr(response, "text", None) or str(response)
+                st.subheader("AI 研报")
+                st.markdown(report)
+            except Exception as e:
+                st.error(f"调用 Gemini 生成研报时出错: {e}")
+        else:
+            st.info("未配置 Gemini API Key，已展示原始数据。")
+
+    except Exception as e:
+        st.error(f"发生错误: {e}")
