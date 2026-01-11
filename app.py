@@ -15,7 +15,6 @@ except Exception as e:
     ak_import_error = e
 
 # ⚠️ 1. 强制走本地代理 (解决国内连接 Google 的问题)
-# 请确保端口 7890 与你的 VPN 软件设置一致
 #os.environ["HTTP_PROXY"] = "http://127.0.0.1:7890"
 #os.environ["HTTPS_PROXY"] = "http://127.0.0.1:7890"
 
@@ -29,24 +28,20 @@ def get_global_financial_data(market, symbol):
     try:
         # --- A股逻辑 (AkShare) ---
         if market == "CN":
-            # If akshare wasn't imported, return a friendly error explaining how to fix it
             if ak is None:
                 return (
                     "❌ A股数据接口未能导入 (akshare 未安装或导入失败)。\n"
                     f"导入错误: {ak_import_error}\n"
-                    "解决方法: 在运行环境中执行 `pip install akshare`，然后重启应用。\n"
-                    "如果你使用 requirements.txt / Docker，请将 akshare 添加到依赖并重建镜像。"
+                    "解决方法: 在运行环境中执行 `pip install akshare`，然后重启应用。"
                 )
 
             try:
-                # 1. 实时行情
                 stock_spot = ak.stock_zh_a_spot_em()
                 target = stock_spot[stock_spot['代码'].astype(str) == str(symbol)]
                 if target.empty:
                     return f"❌ 错误：未找到A股代码 {symbol}。请检查是否输入正确（如 600519）。"
 
                 row = target.iloc[0]
-                # Use safe access (Series.get may be used; use str() to avoid errors)
                 name = row.get('名称', 'N/A') if hasattr(row, 'get') else row.get('名称', 'N/A')
                 latest_price = row.get('最新价', 'N/A')
                 pct_chg = row.get('涨跌幅', 'N/A')
@@ -57,8 +52,6 @@ def get_global_financial_data(market, symbol):
                     f"【实时行情】\n名称：{name}\n价格：{latest_price}\n涨跌幅：{pct_chg}%\n"
                     f"PE(动)：{pe_dynamic}\n市值：{market_cap}\n"
                 )
-
-                # 2. 财务指标 (简要提示)
                 context += "【财务概况】\n(注：A股详细财务数据调用耗时较长，此处仅提供行情驱动分析)\n"
 
             except Exception as e:
@@ -66,7 +59,6 @@ def get_global_financial_data(market, symbol):
 
         # --- 全球市场逻辑 (YFinance) ---
         else:
-            # 自动补全后缀
             yf_symbol = symbol
             if market == "HK" and not symbol.endswith(".HK"):
                 yf_symbol = f"{symbol}.HK"
@@ -74,18 +66,15 @@ def get_global_financial_data(market, symbol):
                 yf_symbol = f"{symbol}.T"
 
             ticker = yf.Ticker(yf_symbol)
-            # ticker.info can raise or return an empty dict for some symbols
             try:
                 info = ticker.info or {}
             except Exception:
                 info = {}
 
-            # 检查数据是否有效
             current_price = info.get('currentPrice') or info.get('regularMarketPrice')
             if not current_price:
-                 return f"❌ 错误：未找到代码 {yf_symbol} 的数据。请检查代码是否正确（例如日股需确认是否退市或代码变更）。"
+                 return f"❌ 错误：未找到代码 {yf_symbol} 的数据。请检查代码是否正确。"
 
-            # 提取关键信息
             currency = info.get('currency', 'USD')
             long_name = info.get('longName', symbol)
 
@@ -117,39 +106,33 @@ def get_global_financial_data(market, symbol):
 # 2. 页面配置
 st.set_page_config(page_title="Global AI Stock Analyst", page_icon="🌏", layout="centered")
 
-# === 🔐 新增功能：登录界面验证 ===
+# === 🔐 登录界面验证 ===
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
     st.title("🔒 系统访问受限")
     st.markdown("请输入访问密码以继续：")
-    
     password_input = st.text_input("密码", type="password")
-    
     if st.button("登录"):
-        # 密码逻辑：三个空格键
         if password_input == "   ": 
             st.session_state.logged_in = True
             st.rerun()
         else:
             st.error("❌ 密码错误，请重试。")
-            
-    # 如果未登录，直接停止执行后续代码
     st.stop()
 
-# === 📦 新增功能：初始化历史记录 ===
+# === 📦 初始化 Session State ===
 if "history" not in st.session_state:
     st.session_state.history = []
+if "current_report" not in st.session_state:
+    st.session_state.current_report = "" # 用于存储当前显示的研报内容
 
 # 3. 侧边栏配置
 with st.sidebar:
     st.header("⚙️ 设置")
-
-    # === 🔥 安全更新：移除了所有硬编码 Key ===
-    # === 新增：API Key 输入框 (密码模式) ===
     api_key = st.text_input(
-        "Gemini API Key：visit your api Key via https://aistudio.google.com/api-keys ", 
+        "Gemini API Key", 
         type="password", 
         placeholder="在此粘贴 Key，不会明文显示",
         help="你的 Key 不会被保存。刷新页面后需要重新输入。"
@@ -162,18 +145,29 @@ with st.sidebar:
     st.divider()
     st.markdown("""
     **代码输入指南：**
-    * 🇺🇸 **美股**：直接输代码 (如 `AAPL`, `NVDA`)
-    * 🇭🇰 **港股**：输数字 (如 `9988`, `0700`)
-    * 🇯🇵 **日股**：输数字 (如 `7203`, `8058`)
+    * 🇺🇸 **美股**：直接输代码 (如 `AAPL`)
+    * 🇭🇰 **港股**：输数字 (如 `9988`)
+    * 🇯🇵 **日股**：输数字 (如 `7203`)
     * 🇨🇳 **A股**：输数字 (如 `600519`)
     """)
     
-    # === 📜 新增功能：历史搜索记录栏 ===
+    # === 📜 增强版：历史搜索记录栏 ===
     st.divider()
     st.header("🕒 历史搜索记录")
+    
+    # 使用按钮展示历史记录，点击即可回看
     if st.session_state.history:
-        for item in reversed(st.session_state.history[-10:]): # 仅显示最近10条
-            st.caption(f"▫️ {item}")
+        # 倒序遍历，让最新的显示在最上面
+        for i, item in enumerate(reversed(st.session_state.history)):
+            # 兼容性处理：确保 item 是字典
+            if isinstance(item, dict):
+                label = item['title']
+                # key 需要唯一，使用 index
+                if st.button(f"📄 {label}", key=f"hist_{i}", use_container_width=True):
+                    # 点击后，直接将历史内容赋值给当前显示区
+                    st.session_state.current_report = item['content']
+                    # 重新运行以刷新主界面显示
+                    st.rerun()
     else:
         st.caption("暂无搜索记录")
 
@@ -181,52 +175,31 @@ with st.sidebar:
 st.title("🌏 全球股市 AI 研报系统")
 st.caption("支持：🇺🇸 美股 (Nasdaq/NYSE) | 🇭🇰 港股 | 🇯🇵 日股 | 🇨🇳 A股")
 
-# 市场选择逻辑优化
 col1, col2 = st.columns([1, 2])
 with col1:
-    market_label = st.selectbox(
-        "选择市场",
-        [
-            "🇺🇸 美股 (US)",
-            "🇭🇰 港股 (HK)",
-            "🇯🇵 日股 (JP)",
-            "🇨🇳 A股 (CN)"
-        ],
-        index=0
-    )
-    # 提取简单的市场代码 (US, HK, JP, CN)
+    market_label = st.selectbox("选择市场", ["🇺🇸 美股 (US)", "🇭🇰 港股 (HK)", "🇯🇵 日股 (JP)", "🇨🇳 A股 (CN)"], index=0)
     market_code = market_label.split("(")[1].split(")")[0]
 
 with col2:
-    # 根据市场给出不同的默认值建议
-    if market_code == "US":
-        def_val = "NVDA"
-    elif market_code == "HK":
-        def_val = "9988"
-    elif market_code == "JP":
-        def_val = "7203" # 丰田
-    else:
-        def_val = "600519" # 茅台
-
+    if market_code == "US": def_val = "NVDA"
+    elif market_code == "HK": def_val = "9988"
+    elif market_code == "JP": def_val = "7203"
+    else: def_val = "600519"
     symbol = st.text_input("输入股票代码", value=def_val)
 
-# 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
 你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、行业与宏观视角、催化剂观察与投资总结。
 """
 
 # 6. 执行逻辑
 if st.button("🚀 生成全球研报", use_container_width=True):
-    # === 检查 Key 是否输入 ===
     if not api_key:
         st.error("❌ 请先在左侧侧边栏输入 Gemini API Key 才能继续！")
     else:
-        # 初始化
         start_time = time.time()
         progress_bar = st.progress(0, text="正在初始化...")
         status_box = st.status(f"🚀 正在启动 {market_code} 市场分析引擎...", expanded=True)
 
-        # A. 获取数据
         progress_bar.progress(20, text=f"📡 正在连接 {market_label} 交易所接口...")
         status_box.write("📡 正在抓取实时行情与财务数据...")
 
@@ -237,7 +210,6 @@ if st.button("🚀 生成全球研报", use_container_width=True):
             progress_bar.empty()
             st.error(data_context)
         else:
-            # B. AI 推理
             progress_bar.progress(50, text="🧠 数据就绪，正在请求 Gemini 进行跨市场分析...")
             status_box.write(f"🧠 数据获取成功，正在请求 Gemini {model_name}...")
 
@@ -257,22 +229,25 @@ if st.button("🚀 生成全球研报", use_container_width=True):
 
                 response = model.generate_content(full_prompt)
 
-                # C. 完成
                 progress_bar.progress(100, text="✅ 生成完成！")
                 end_time = time.time()
                 elapsed_time = end_time - start_time
                 
-                # === 💾 新增功能：保存到历史记录 ===
-                history_entry = f"[{market_code}] {symbol} - {time.strftime('%H:%M:%S')}"
-                st.session_state.history.append(history_entry)
+                # === 💾 修改：保存完整数据到历史记录 ===
+                # 保存为字典结构：标题 + 内容
+                history_title = f"[{market_code}] {symbol} - {time.strftime('%H:%M:%S')}"
+                st.session_state.history.append({
+                    "title": history_title, 
+                    "content": response.text
+                })
+                
+                # 更新当前显示内容
+                st.session_state.current_report = response.text
 
                 status_box.update(label=f"✅ 分析完成！(耗时 {elapsed_time:.2f}s)", state="complete", expanded=False)
                 st.success(f"研报已生成！耗时：{elapsed_time:.2f} 秒")
 
-                st.divider()
-                st.markdown(response.text)
-
-                time.sleep(2)
+                time.sleep(1)
                 progress_bar.empty()
 
             except Exception as e:
@@ -285,3 +260,8 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                 else:
                     st.error(f"Gemini 报错: {e}")
 
+# === 🖥️ 统一展示区 (位于按钮下方) ===
+# 无论是点击生成，还是点击历史记录，内容都会显示在这里
+if st.session_state.current_report:
+    st.divider()
+    st.markdown(st.session_state.current_report)
