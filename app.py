@@ -117,6 +117,31 @@ def get_global_financial_data(market, symbol):
 # 2. 页面配置
 st.set_page_config(page_title="Global AI Stock Analyst", page_icon="🌏", layout="centered")
 
+# === 🔐 新增功能：登录界面验证 ===
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    st.title("🔒 系统访问受限")
+    st.markdown("请输入访问密码以继续：")
+    
+    password_input = st.text_input("密码", type="password")
+    
+    if st.button("登录"):
+        # 密码逻辑：三个空格键
+        if password_input == "   ": 
+            st.session_state.logged_in = True
+            st.rerun()
+        else:
+            st.error("❌ 密码错误，请重试。")
+            
+    # 如果未登录，直接停止执行后续代码
+    st.stop()
+
+# === 📦 新增功能：初始化历史记录 ===
+if "history" not in st.session_state:
+    st.session_state.history = []
+
 # 3. 侧边栏配置
 with st.sidebar:
     st.header("⚙️ 设置")
@@ -136,6 +161,15 @@ with st.sidebar:
     * 🇯🇵 **日股**：输数字 (如 `7203`, `8058`)
     * 🇨🇳 **A股**：输数字 (如 `600519`)
     """)
+    
+    # === 📜 新增功能：历史搜索记录栏 ===
+    st.divider()
+    st.header("🕒 历史搜索记录")
+    if st.session_state.history:
+        for item in reversed(st.session_state.history[-10:]): # 仅显示最近10条
+            st.caption(f"▫️ {item}")
+    else:
+        st.caption("暂无搜索记录")
 
 # 4. 主界面
 st.title("🌏 全球股市 AI 研报系统")
@@ -172,7 +206,7 @@ with col2:
 
 # 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
-你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，��合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、行业与宏观视角、催化剂观察与投资总结。
+你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、行业与宏观视角、催化剂观察与投资总结。
 """
 
 # 6. 执行逻辑
@@ -220,6 +254,10 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                 progress_bar.progress(100, text="✅ 生成完成！")
                 end_time = time.time()
                 elapsed_time = end_time - start_time
+                
+                # === 💾 新增功能：保存到历史记录 ===
+                history_entry = f"[{market_code}] {symbol} - {time.strftime('%H:%M:%S')}"
+                st.session_state.history.append(history_entry)
 
                 status_box.update(label=f"✅ 分析完成！(耗时 {elapsed_time:.2f}s)", state="complete", expanded=False)
                 st.success(f"研报已生成！耗时：{elapsed_time:.2f} 秒")
