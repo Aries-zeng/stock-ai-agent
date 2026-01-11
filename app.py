@@ -149,7 +149,7 @@ with st.sidebar:
     # === 🔥 安全更新：移除了所有硬编码 Key ===
     # === 新增：API Key 输入框 (密码模式) ===
     api_key = st.text_input(
-        "Gemini API Key", 
+        "Gemini API Key：visit your api Key via https://aistudio.google.com/api-keys ", 
         type="password", 
         placeholder="在此粘贴 Key，不会明文显示",
         help="你的 Key 不会被保存。刷新页面后需要重新输入。"
@@ -284,3 +284,4 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                     st.error("🛑 API Key 无效。请检查输入的 Key 是否正确。")
                 else:
                     st.error(f"Gemini 报错: {e}")
+
