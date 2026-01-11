@@ -1,3 +1,4 @@
+```python name=app.py url=https://github.com/Aries-zeng/stock-ai-agent/blob/26898ce4dcf1bee9b2393fcbd077bff1890a1d87/app.py
 import os
 import time
 import streamlit as st
@@ -117,6 +118,19 @@ def get_global_financial_data(market, symbol):
 # 2. 页面配置
 st.set_page_config(page_title="Global AI Stock Analyst", page_icon="🌏", layout="centered")
 
+# -------------------------
+# 应用入口认证：简单密码校验
+# 密码为：zhizunbao
+# 认证失败将阻止后续页面渲染
+# -------------------------
+password_input = st.sidebar.text_input("请输入访问密码 (Password)", type="password", help="请输入访问应用的密码")
+if password_input != "zhizunbao":
+    if password_input:
+        st.sidebar.error("密码错误。若忘记密码，请联系管理员。")
+    else:
+        st.sidebar.info("请输入密码以访问应用。")
+    st.stop()
+
 # 3. 侧边栏配置
 with st.sidebar:
     st.header("⚙️ 设置")
@@ -136,6 +150,22 @@ with st.sidebar:
     * 🇯🇵 **日股**：输数字 (如 `7203`, `8058`)
     * 🇨🇳 **A股**：输数字 (如 `600519`)
     """)
+
+    # -------------------------
+    # 搜索历史（存储过去搜索过的股票）
+    # 使用 st.session_state 在当前会话内保存历史，可选提供清除功能
+    # -------------------------
+    if 'search_history' not in st.session_state:
+        st.session_state['search_history'] = []
+
+    # 显示历史（最近的放在前面），并支持点击快速填充输入框
+    history_display = list(reversed(st.session_state['search_history']))
+    history_options = [""] + history_display  # 空字符串作为占位
+    selected_history = st.selectbox("搜索历史（点击以填充）", options=history_options, index=0)
+
+    if st.button("清除搜索历史"):
+        st.session_state['search_history'] = []
+        st.experimental_rerun()
 
 # 4. 主界面
 st.title("🌏 全球股市 AI 研报系统")
@@ -168,15 +198,35 @@ with col2:
     else:
         def_val = "600519" # 茅台
 
-    symbol = st.text_input("输入股票代码", value=def_val)
+    # 如果用户从历史中选择了某个股票，则优先使用选中的历史项填充输入框
+    prefill = selected_history if selected_history else def_val
+
+    symbol = st.text_input("输入股票代码", value=prefill)
 
 # 5. Prompt 策略 (增强了对不同市场的适应性)
 SYSTEM_PROMPT = """
-你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，��合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、行业与宏观视角、催化剂观察与投资总结。
+你是一位精通全球资本市场的首席分析师。请针对用户提供的股票，��合其所在市场的特性生成逻辑清晰的个股研报，包含基本面分析、逻辑验证、��[...]
 """
 
 # 6. 执行逻辑
 if st.button("🚀 生成全球研报", use_container_width=True):
+    # 在用户点击生成时，将当前搜索记录保存到历史里（去重，并限制长度）
+    try:
+        if 'search_history' not in st.session_state:
+            st.session_state['search_history'] = []
+        if symbol:
+            normalized = str(symbol).strip()
+            if normalized:
+                # 避免重复，保留最早的出现顺序（只记录新搜索）
+                if normalized not in st.session_state['search_history']:
+                    st.session_state['search_history'].append(normalized)
+                    # 限制历史长度为最近 50 条
+                    if len(st.session_state['search_history']) > 50:
+                        st.session_state['search_history'] = st.session_state['search_history'][-50:]
+    except Exception:
+        # 不要因为历史记录出错而阻塞主流程
+        pass
+
     if not api_key:
         st.error("请先在左侧输入 Gemini API Key 🔑")
     else:
@@ -237,3 +287,4 @@ if st.button("🚀 生成全球研报", use_container_width=True):
                     st.error("⚠️ 触发限流 (429)，请稍等30秒再试。")
                 else:
                     st.error(f"Gemini 报错: {e}")
+```
